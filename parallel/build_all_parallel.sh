@@ -252,7 +252,7 @@ for repo_name_to_process in "${!SELECTED_REPOS_MAP[@]}"; do
                 1) ENVIRONMENT_CHOICES["$REPO"]="development" ;;
                 2) ENVIRONMENT_CHOICES["$REPO"]="production" ;;
                 3) ENVIRONMENT_CHOICES["$REPO"]="uat" ;;
-                4) ENVIRONMENT_CHOICES["$REPO"]="staging" ;;
+                4) ENVIRONMENT_CHOICES["$REPO"]="production" ;;
                 5)
                     read -rp "Enter new environment name: " CUSTOM_ENV
                     ENVIRONMENT_CHOICES["$REPO"]="$CUSTOM_ENV"
