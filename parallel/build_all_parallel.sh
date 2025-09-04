@@ -8,7 +8,7 @@ CONFIG_FILE="$HOME/.repo_builder_config"
 
 # Load environment file if available
 if [[ -f "$ENV_FILE" ]]; then
-  source "$ENV_FILE"
+    source "$ENV_FILE"
 fi
 
 declare -A REPO_URLS=(
@@ -67,6 +67,33 @@ load_config() {
             esac
         done < "$CONFIG_FILE"
     fi
+}
+
+# Function to add a new environment configuration to angular.json
+add_angular_env_config() {
+    local env_name="$1"
+    local angular_json_file="$2"
+    echo "Adding configuration for '$env_name' to angular.json..."
+
+    # Create a temporary file to hold the new configuration block
+    local temp_config_file=$(mktemp)
+    cat > "$temp_config_file" <<EOF
+          "${env_name}": {
+            "fileReplacements": [
+              {
+                "replace": "src/environments/environment.ts",
+                "with": "src/environments/environment.${env_name}.ts"
+              }
+            ]
+          },
+EOF
+
+    # Use sed's 'r' command to read and insert the content of the temporary file.
+    sed -i "/\"configurations\": {/r $temp_config_file" "$angular_json_file"
+
+    # Clean up the temporary file
+    rm "$temp_config_file"
+    echo "✅ Configuration added."
 }
 
 load_config
@@ -202,18 +229,18 @@ for repo_name_to_process in "${!SELECTED_REPOS_MAP[@]}"; do
         echo "🔄 Updating $REPO..."
         git -C "$REPO_DIR" remote set-url origin "$AUTH_GIT_URL"
         if ! git -C "$REPO_DIR" fetch origin --prune; then
-          echo "❌ Failed to fetch $REPO. Skipping."
-          unset SELECTED_REPOS_MAP["$REPO"]
-          continue
+            echo "❌ Failed to fetch $REPO. Skipping."
+            unset SELECTED_REPOS_MAP["$REPO"]
+            continue
         fi
         git -C "$REPO_DIR" reset --hard "origin/$DEFAULT_REPO_BRANCH"
         git -C "$REPO_DIR" clean -fd
     else
         echo "📥 Cloning $REPO using authenticated URL..."
         if ! git clone "$AUTH_GIT_URL" "$REPO_DIR"; then
-          echo "❌ Failed to clone $REPO. Skipping."
-          unset SELECTED_REPOS_MAP["$REPO"]
-          continue
+            echo "❌ Failed to clone $REPO. Skipping."
+            unset SELECTED_REPOS_MAP["$REPO"]
+            continue
         fi
     fi
 
@@ -252,7 +279,7 @@ for repo_name_to_process in "${!SELECTED_REPOS_MAP[@]}"; do
                 1) ENVIRONMENT_CHOICES["$REPO"]="development" ;;
                 2) ENVIRONMENT_CHOICES["$REPO"]="production" ;;
                 3) ENVIRONMENT_CHOICES["$REPO"]="uat" ;;
-                4) ENVIRONMENT_CHOICES["$REPO"]="production" ;;
+                4) ENVIRONMENT_CHOICES["$REPO"]="staging" ;;
                 5)
                     read -rp "Enter new environment name: " CUSTOM_ENV
                     ENVIRONMENT_CHOICES["$REPO"]="$CUSTOM_ENV"
@@ -266,7 +293,6 @@ for repo_name_to_process in "${!SELECTED_REPOS_MAP[@]}"; do
                       echo "⚠️ Environment file already exists: $NEW_ENV_FILE"
                     fi
                     if ! grep -q "\"$CUSTOM_ENV\"" "$ANGULAR_JSON_FILE"; then
-                      # Assuming add_angular_env_config is defined elsewhere in your scripts
                       add_angular_env_config "$CUSTOM_ENV" "$ANGULAR_JSON_FILE"
                     else
                       echo "⚠️ Configuration '$CUSTOM_ENV' already exists in angular.json."

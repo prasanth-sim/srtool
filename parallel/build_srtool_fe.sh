@@ -27,6 +27,84 @@ cd "$REPO_DIR"
 git fetch origin
 git reset --hard "origin/$BRANCH"
 FRONTEND_DIR="$REPO_DIR"
+
+# Function to add a new environment configuration to angular.json
+add_angular_env_config() {
+  local env_name="$1"
+  local angular_json_file="$2"
+  echo "Adding configuration for '$env_name' to angular.json..."
+  local temp_config_file=$(mktemp)
+  cat > "$temp_config_file" <<EOF
+           "${env_name}": {
+             "fileReplacements": [
+               {
+                 "replace": "src/environments/environment.ts",
+                 "with": "src/environments/environment.${env_name}.ts"
+               }
+             ]
+           },
+EOF
+  # Use sed's 'r' command to read and insert the content of the temporary file.
+  sed -i "/\"configurations\": {/r $temp_config_file" "$angular_json_file"
+  rm "$temp_config_file"
+  echo "✅ Configuration added."
+}
+
+# Environment creation logic must be done after git reset
+case "$ENVIRONMENT" in
+  "development" | "production" | "uat" | "staging")
+    echo "Using existing environment: $ENVIRONMENT"
+    ;;
+  *)
+    FRONTEND_ENV_DIR="$REPO_DIR/src/environments"
+    NEW_ENV_FILE="$FRONTEND_ENV_DIR/environment.$ENVIRONMENT.ts"
+    ANGULAR_JSON_FILE="$REPO_DIR/angular.json"
+    # New logic: Remove existing file to ensure a clean slate
+    if [ -f "$NEW_ENV_FILE" ]; then
+      echo "Removing old environment file: $NEW_ENV_FILE"
+      rm "$NEW_ENV_FILE"
+    fi
+
+    echo "Creating new comprehensive environment file: $NEW_ENV_FILE"
+    cat > "$NEW_ENV_FILE" << EOF
+export const environment = {
+  production: true,
+  loginUrl: '/login',
+  url: 'https://cisr.${ENVIRONMENT}.simadvisory.com',
+  API_URL: \`/app\`,
+  ACCESS_API_URL: 'https://cisr.${ENVIRONMENT}.simadvisory.com/app',
+  KeycloakUrl: 'https://auth.dev.simadvisory.com/auth',
+  Realm: 'SRT_${ENVIRONMENT^^}',
+  ClientId: 'D_SRT_Client',
+
+  KEYCLOAK_EXTRA_ARGS_PREPENDED:
+    '--spi-login-protocol-openid-connect-legacy-logout-redirect-uri=true',
+  version: 'YTD - Oct 2024',
+  version1: 'YTD - Sept 2024',
+  version2: 'YTD - Oct 2024',
+  version3: 'YTD - Oct 2024',
+  version4: 'YTD - Sept 2024',
+  version5: 'YTD - Oct 2024',
+  meritorDateOfUpdate: 'Oct 2024',
+
+  feedBackSubject: 'Feedback',
+  toName: 'Praveen',
+
+  NX_SUPERSET_DOMAIN: "https://reports.cisr.${ENVIRONMENT}.alpha.simadvisory.com",
+  NX_API_USER_ACCESS_URL: "https://cisr.${ENVIRONMENT}.alpha.simadvisory.com/api/v1/user-access/reports/token",
+  ID: "5600ea30-7e61-4e3d-957b-909a84ddc68b",
+};
+EOF
+    echo "✅ Created new environment file: $NEW_ENV_FILE"
+
+    if ! grep -q "\"$ENVIRONMENT\"" "$ANGULAR_JSON_FILE"; then
+      add_angular_env_config "$ENVIRONMENT" "$ANGULAR_JSON_FILE"
+    else
+      echo "⚠️ Configuration '$ENVIRONMENT' already exists in angular.json."
+    fi
+    ;;
+esac
+
 echo "🔨 Building project in: $FRONTEND_DIR"
 echo "📦 Installing npm dependencies..."
 npm install
